@@ -9,8 +9,11 @@ Docker image to provide HTML5 VNC interface to access Ubuntu 16.04 LXDE desktop 
 Quick Start
 -------------------------
 
-Build: `docker build -t ubuntu-desktop-node .`
-Run VNC: `docker run -p 5900:5900 -v /dev/shm:/dev/shm ubuntu-desktop-node`
+Build:
+`docker build -t ubuntu-desktop-node .`
+
+Run VNC:
+`docker run -p 5900:5900 -v /dev/shm:/dev/shm ubuntu-desktop-node`
 
 Run the docker container and access with port `6080`
 
