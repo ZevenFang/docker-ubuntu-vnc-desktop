@@ -8,7 +8,7 @@ FROM ubuntu:18.04 as system
 
 
 
-RUN sed -i 's#http://archive.ubuntu.com/#http://tw.archive.ubuntu.com/#' /etc/apt/sources.list; 
+RUN sed -i 's#http://archive.ubuntu.com/#http://mirrors.aliyun.com/#' /etc/apt/sources.list; 
 
 
 # built-in packages
@@ -63,57 +63,54 @@ COPY image/usr/local/lib/web/backend/requirements.txt /tmp/
 RUN apt-get update \
     && dpkg-query -W -f='${Package}\n' > /tmp/a.txt \
     && apt-get install -y python-pip python-dev build-essential \
-	&& pip install setuptools wheel && pip install -r /tmp/requirements.txt \
-    && dpkg-query -W -f='${Package}\n' > /tmp/b.txt \
-    && apt-get remove -y `diff --changed-group-format='%>' --unchanged-group-format='' /tmp/a.txt /tmp/b.txt | xargs` \
-    && apt-get autoclean -y \
-    && apt-get autoremove -y \
-    && rm -rf /var/lib/apt/lists/* \
-    && rm -rf /var/cache/apt/* /tmp/a.txt /tmp/b.txt
+	&& pip install setuptools wheel && pip install -r /tmp/requirements.txt
 
 
 ################################################################################
 # builder
 ################################################################################
-FROM ubuntu:18.04 as builder
+# FROM ubuntu:18.04 as builder
 
 
-RUN sed -i 's#http://archive.ubuntu.com/#http://tw.archive.ubuntu.com/#' /etc/apt/sources.list; 
-
-
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl ca-certificates gnupg patch
+# RUN sed -i 's#http://archive.ubuntu.com/#http://tw.archive.ubuntu.com/#' /etc/apt/sources.list; 
 
 # nodejs
-RUN curl -sL https://deb.nodesource.com/setup_8.x | bash - \
+RUN apt-get install -y --no-install-recommends wget curl ca-certificates gnupg patch \
+    && curl -sL https://deb.nodesource.com/setup_8.x | bash - \
     && apt-get install -y nodejs
 
 # yarn
 RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add - \
     && echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list \
     && apt-get update \
-    && apt-get install -y yarn
+    && apt-get install -y yarn git vim filezilla \
+    && rm -rf /var/lib/apt/lists/*
 
 # build frontend
 COPY web /src/web
 RUN cd /src/web \
-    && yarn \
-    && npm run build
-
-
+    && yarn global add cnpm \
+    && cnpm i \
+    && yarn build
 
 ################################################################################
 # merge
 ################################################################################
-FROM system
-LABEL maintainer="fcwu.tw@gmail.com"
+# FROM system
+# LABEL maintainer="fcwu.tw@gmail.com"
 
-COPY --from=builder /src/web/dist/ /usr/local/lib/web/frontend/
+# COPY --from=builder /src/web/dist/ /usr/local/lib/web/frontend/
 COPY image /
+
+COPY vscode.deb /root
+RUN mv /src/web/dist/* /usr/local/lib/web/frontend \
+    && rm -rf /src/web \
+    && dpkg -i /root/vscode.deb \
+    && rm /root/vscode.deb
 
 EXPOSE 80
 WORKDIR /root
 ENV HOME=/home/ubuntu \
     SHELL=/bin/bash
-HEALTHCHECK --interval=30s --timeout=5s CMD curl --fail http://127.0.0.1:6079/api/health
+# HEALTHCHECK --interval=30s --timeout=5s CMD curl --fail http://127.0.0.1:6079/api/health
 ENTRYPOINT ["/startup.sh"]
